@@ -494,7 +494,7 @@ B,2025-01-01,KPI2,8</pre>
             const ws = XLSX.utils.aoa_to_sheet(outputData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Output Data');
-            XLSX.writeFile(wb, 'output-data.xlsx');
+            XLSX.writeFile(wb, 'output-data.csv');
         }
 
         // Helper Functions
@@ -550,4 +550,5 @@ B,2025-01-01,KPI2,8</pre>
         });
     </script>
 </body>
+
 </html>
