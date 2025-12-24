@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Row-to-Column Conversion Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button {
+            position: relative;
+        }
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #3b82f6;
+        }
+        pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl">
+        <!-- Header with Navigation -->
+        <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2">Excel Row-to-Column Conversion Tool</h1>
+                    <p class="text-sm sm:text-base text-gray-600">Transform your data by pivoting selected columns into rows</p>
+                </div>
+                <div class="text-xs sm:text-sm">
+                    <div class="text-right">
+                        <p class="text-gray-500 mb-1">Made with ❤️ by</p>
+                        <a href="https://soemoehtun.github.io/profolio/" target="_blank" class="text-blue-600 underline hover:text-blue-700 font-medium">
+                            Soe Moe Tun
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="mt-4 sm:mt-6 border-b border-gray-200">
+                <nav class="flex space-x-8">
+                    <button onclick="switchTab('tool')" class="tab-button active py-2 px-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors" id="tool-tab">
+                        🛠️ Conversion Tool
+                    </button>
+                    <button onclick="switchTab('guide')" class="tab-button py-2 px-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors" id="guide-tab">
+                        📖 User Guidelines
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Tool Tab Content -->
+        <div id="tool-content" class="tab-content active">
+            <!-- Input Section -->
+            <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6">
+                <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">1. Upload Data File (.CSV Only)</h2>
+                <div class="flex flex-col gap-3 sm:gap-4">
+                    <input type="file" id="fileInput" accept=".csv" class="w-full p-2 text-sm sm:text-base border border-gray-300 rounded">
+                    <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <label class="text-sm sm:text-base text-gray-700 whitespace-nowrap">Sheet Number:</label>
+                            <input type="number" id="sheetNum" value="1" min="1" class="flex-1 sm:flex-none w-full sm:w-14 md:w-16 p-1.5 sm:p-2 text-sm sm:text-base border border-gray-300 rounded">
+                        </div>
+                        <button id="btnImport" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 sm:px-6 rounded text-sm sm:text-base w-full sm:w-auto">
+                            Import Data
+                        </button>
+                    </div>
+                </div>
+                <div id="importStatus" class="mt-3 text-xs sm:text-sm"></div>
+            </div>
+
+            <!-- Column Selection Section -->
+            <div id="selectionSection" class="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-4 sm:mb-6 hidden">
+                <div class="flex flex-col gap-3 sm:gap-4">
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-bold text-gray-800 mb-1">2. Select Columns</h2>
+                        <p class="text-xs sm:text-sm text-gray-500">Choose columns to keep and pivot. Then run conversion.</p>
+                    </div>
+                    <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                        <button id="btnSelectAllKeep" class="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 bg-white hover:bg-gray-50">Select All Keep</button>
+                        <button id="btnClearKeep" class="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 bg-white hover:bg-gray-50">Clear Keep</button>
+                        <button id="btnSelectAllPivot" class="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 bg-white hover:bg-gray-50">Select All Pivot</button>
+                        <button id="btnClearPivot" class="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded border border-gray-300 bg-white hover:bg-gray-50">Clear Pivot</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-4">
+                    <!-- Keep Columns -->
+                    <div>
+                        <h3 class="text-sm sm:text-base font-semibold text-gray-700 mb-1 sm:mb-2">Columns to Keep (Select Multiple)</h3>
+                        <p class="text-xs sm:text-sm text-gray-500 mb-2">These columns will appear in every output row</p>
+                        <select id="lstColumns" multiple size="8" class="w-full p-2 text-sm sm:text-base border border-gray-300 rounded"></select>
+                    </div>
+
+                    <!-- Pivot Columns -->
+                    <div>
+                        <h3 class="text-sm sm:text-base font-semibold text-gray-700 mb-1 sm:mb-2">Columns to Pivot (Select Multiple)</h3>
+                        <p class="text-xs sm:text-sm text-gray-500 mb-2">These columns will be converted to rows</p>
+                        <select id="lstPivot" multiple size="8" class="w-full p-2 text-sm sm:text-base border border-gray-300 rounded"></select>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div class="mt-4">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="chkIncludeHeader" checked class="w-4 h-4">
+                        <span class="text-sm sm:text-base text-gray-700">Include Pivot Column Name in output</span>
+                    </label>
+                    <div id="runStatus" class="mt-2 text-xs sm:text-sm text-gray-600"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-4 sm:mt-6">
+                    <button id="btnRun" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 sm:px-6 rounded text-sm sm:text-base">
+                        Run Conversion & Download
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guide Tab Content -->
+        <div id="guide-content" class="tab-content">
+            <!-- Overview -->
+            <section id="overview" class="bg-white rounded-lg shadow p-5 border border-gray-100 mb-6">
+                <h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+                    <span>📌 Overview</span>
+                </h2>
+                <p class="text-sm leading-relaxed">
+                    The <strong>Excel Row-to-Column Conversion Tool</strong> converts data from a
+                    <span class="font-mono bg-sky-50 px-1 rounded border border-sky-100">wide format</span>
+                    (many columns) into a
+                    <span class="font-mono bg-sky-50 px-1 rounded border border-sky-100">long format</span>
+                    (more rows). This operation is sometimes called <b>unpivoting</b>.
+                </p>
+                <ul class="list-disc list-inside text-sm mt-3 space-y-1">
+                    <li>Input: <b>CSV file</b> with one header row.</li>
+                    <li>Output: <b>Excel file</b> with identifiers kept as-is and selected columns unpivoted.</li>
+                    <li>Processing: <b>100% client-side</b> – your data does not leave your browser.</li>
+                </ul>
+                <div class="mt-4 grid gap-3 sm:grid-cols-3 text-xs">
+                    <div class="border border-emerald-100 bg-emerald-50 rounded p-3">
+                        <p class="font-semibold text-emerald-800">Best for</p>
+                        <p class="mt-1 text-emerald-900">Dashboard inputs, BI tools, time-series KPIs, survey results.</p>
+                    </div>
+                    <div class="border border-sky-100 bg-sky-50 rounded p-3">
+                        <p class="font-semibold text-sky-800">You need this when</p>
+                        <p class="mt-1 text-sky-900">You have many KPI columns and want one flexible "Value" column.</p>
+                    </div>
+                    <div class="border border-amber-100 bg-amber-50 rounded p-3">
+                        <p class="font-semibold text-amber-800">You don't need this when</p>
+                        <p class="mt-1 text-amber-900">Your data is already in long format (one row per observation).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Steps -->
+            <section id="detailed-steps" class="bg-white rounded-lg shadow p-5 border border-gray-100 mb-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                    <span>🛠 Step-by-Step Guide</span>
+                </h2>
+
+                <div class="space-y-4 text-sm">
+                    <div class="border border-sky-100 rounded-lg p-3 bg-sky-50/70">
+                        <h3 class="font-semibold mb-1">1️⃣ Upload File</h3>
+                        <p>
+                            Click <b>Choose File</b>, select your <span class="font-mono">.csv</span>, then click
+                            <b>Import Data</b>.
+                        </p>
+                        <p class="mt-1 text-xs text-sky-800">
+                            The tool reads the header row and shows all columns so you can configure the conversion.
+                        </p>
+                    </div>
+
+                    <div class="border border-sky-100 rounded-lg p-3 bg-sky-50/40">
+                        <h3 class="font-semibold mb-1">2️⃣ Select Columns to Keep</h3>
+                        <p>
+                            Mark your <b>identifier columns</b> (such as Site, Country, Date, Segment) as
+                            <span class="font-semibold">Columns to Keep</span>.
+                        </p>
+                        <p class="mt-1 text-xs text-gray-600">
+                            These columns will appear in every row of the output and will not be transformed.
+                        </p>
+                    </div>
+
+                    <div class="border border-sky-100 rounded-lg p-3 bg-sky-50/10">
+                        <h3 class="font-semibold mb-1">3️⃣ Select Columns to Pivot</h3>
+                        <p>
+                            Mark your <b>value columns</b> (KPIs, metrics, questions, etc.) as
+                            <span class="font-semibold">Columns to Pivot</span>.
+                        </p>
+                        <p class="mt-1 text-xs text-gray-600">
+                            Each of these columns will turn into multiple rows in the final output.
+                        </p>
+                    </div>
+
+                    <div class="border border-sky-100 rounded-lg p-3 bg-sky-50/10">
+                        <h3 class="font-semibold mb-1">4️⃣ Configure Pivot Column Name (Optional)</h3>
+                        <p>
+                            Enable <b>Include Pivot Column Name</b> if you want a dedicated column that stores the
+                            <b>original column name</b> for each value.
+                        </p>
+                        <p class="mt-1 text-xs text-gray-600">
+                            Example: For columns <span class="font-mono">KPI1</span> and <span class="font-mono">KPI2</span>,
+                            the output will contain a column like <span class="font-mono">KPI Name</span> with values
+                            <span class="font-mono">"KPI1"</span> or <span class="font-mono">"KPI2"</span>.
+                        </p>
+                    </div>
+
+                    <div class="border border-emerald-100 rounded-lg p-3 bg-emerald-50/60">
+                        <h3 class="font-semibold mb-1">5️⃣ Run Conversion &amp; Download</h3>
+                        <p>
+                            Click <b>Run Conversion &amp; Download</b>. The tool performs the conversion in your browser and
+                            automatically downloads the output as an Excel file.
+                        </p>
+                        <p class="mt-1 text-xs text-emerald-800">
+                            You can now open the file in Excel, Power BI, Tableau, or any analytics tool that supports Excel.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Examples -->
+            <section id="examples" class="bg-white rounded-lg shadow p-5 border border-gray-100 mb-6">
+                <h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+                    <span>📊 Examples</span>
+                </h2>
+
+                <div class="flex flex-wrap gap-2 mb-4 text-xs">
+                    <button type="button" id="copy-sample-csv"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100">
+                        Copy sample CSV
+                    </button>
+                    <span class="text-gray-400" id="copy-feedback"></span>
+                </div>
+
+                <textarea id="sample-csv" class="hidden">
+Site,Date,KPI1,KPI2
+A,2025-01-01,10,20
+A,2025-01-02,15,25
+B,2025-01-01,5,8
+                </textarea>
+
+                <div class="grid gap-4 lg:grid-cols-2 text-xs">
+                    <div>
+                        <p class="font-semibold text-sm mb-1">Input (Wide Format)</p>
+                        <pre class="bg-gray-50 border border-gray-200 p-3 rounded overflow-auto">
+Site,Date,KPI1,KPI2
+A,2025-01-01,10,20
+A,2025-01-02,15,25
+B,2025-01-01,5,8</pre>
+                        <p class="mt-2 text-[0.7rem] text-gray-500">
+                            Columns to Keep: <span class="font-mono">Site, Date</span><br>
+                            Columns to Pivot: <span class="font-mono">KPI1, KPI2</span>
+                        </p>
+                    </div>
+
+                    <div>
+                        <p class="font-semibold text-sm mb-1">Output (Long Format, with Pivot Column Name)</p>
+                        <pre class="bg-gray-50 border border-gray-200 p-3 rounded overflow-auto">
+Site,Date,KPI Name,KPI Value
+A,2025-01-01,KPI1,10
+A,2025-01-01,KPI2,20
+A,2025-01-02,KPI1,15
+A,2025-01-02,KPI2,25
+B,2025-01-01,KPI1,5
+B,2025-01-01,KPI2,8</pre>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-600">
+                    <p class="font-semibold">How to read this:</p>
+                    <ul class="list-disc list-inside mt-1 space-y-1">
+                        <li>Each original row creates <b>one row per KPI column</b> in the output.</li>
+                        <li><span class="font-mono">KPI Name</span> tells you which KPI the value belongs to.</li>
+                        <li><span class="font-mono">KPI Value</span> holds the original numeric/text value.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Output Structure -->
+            <section id="output" class="bg-white rounded-lg shadow p-5 border border-gray-100">
+                <h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+                    <span>📈 Output Structure</span>
+                </h2>
+
+                <p class="mt-4 text-sm font-semibold">Input vs Output (Conceptual)</p>
+                <div class="grid gap-4 mt-2 text-xs">
+                    <div>
+                        <p class="font-semibold">Input (Wide)</p>
+                        <pre class="bg-gray-50 border border-gray-200 p-3 rounded overflow-auto">Site | Date | KPI1 | KPI2</pre>
+                    </div>
+                    <div>
+                        <p class="font-semibold">Output (Long)</p>
+                        <pre class="bg-gray-50 border border-gray-200 p-3 rounded overflow-auto">Site | Date | Pivot Column Name | Pivot Value</pre>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-content').classList.add('active');
+            
+            // Add active class to selected tab button
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        let inputData = [];
+        let outputData = [];
+        let headers = [];
+
+        // Import Data
+        document.getElementById('btnImport').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showStatus('importStatus', 'Please select a file first.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            const sheetNum = parseInt(document.getElementById('sheetNum').value) - 1;
+
+            reader.onload = function(e) {
+                try {
+                    if (file.name.toLowerCase().endsWith('.csv')) {
+                        Papa.parse(e.target.result, {
+                            complete: function(results) {
+                                processData(results.data);
+                            },
+                            skipEmptyLines: true
+                        });
+                    } else {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+
+                        if (sheetNum >= workbook.SheetNames.length || sheetNum < 0) {
+                            showStatus('importStatus', 'Invalid sheet number.', 'error');
+                            return;
+                        }
+
+                        const worksheet = workbook.Sheets[workbook.SheetNames[sheetNum]];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, blankrows: false});
+                        processData(jsonData);
+                    }
+                } catch (error) {
+                    showStatus('importStatus', 'Error reading file: ' + error.message, 'error');
+                }
+            };
+
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        });
+
+        function processData(data) {
+            if (!data || data.length < 2) {
+                showStatus('importStatus', 'File must contain headers and at least one data row.', 'error');
+                return;
+            }
+
+            // Normalize rows length to headers length
+            headers = (data[0] || []).map(h => (h === undefined || h === null) ? '' : String(h));
+            if (headers.length === 0) {
+                showStatus('importStatus', 'No headers detected in the first row.', 'error');
+                return;
+            }
+
+            inputData = data.map((row) => {
+                const arr = Array.isArray(row) ? row.slice() : [];
+                while (arr.length < headers.length) arr.push('');
+                return arr;
+            });
+
+            // Populate column lists
+            const lstColumns = document.getElementById('lstColumns');
+            const lstPivot = document.getElementById('lstPivot');
+
+            lstColumns.innerHTML = '';
+            lstPivot.innerHTML = '';
+
+            headers.forEach((header, index) => {
+                const label = `${header || '(blank)'} (Col ${index + 1})`;
+
+                const optionKeep = document.createElement('option');
+                optionKeep.value = index;
+                optionKeep.textContent = label;
+                lstColumns.appendChild(optionKeep);
+
+                const optionPivot = document.createElement('option');
+                optionPivot.value = index;
+                optionPivot.textContent = label;
+                lstPivot.appendChild(optionPivot);
+            });
+
+            document.getElementById('selectionSection').classList.remove('hidden');
+            showStatus('importStatus', `Data imported successfully. ${inputData.length - 1} rows loaded.`, 'success');
+            setRunStatus('');
+            outputData = [];
+        }
+
+        // Selection helpers
+        function setAllSelected(selectEl, selected) {
+            Array.from(selectEl.options).forEach(o => { o.selected = selected; });
+        }
+        document.getElementById('btnSelectAllKeep').addEventListener('click', () => setAllSelected(document.getElementById('lstColumns'), true));
+        document.getElementById('btnClearKeep').addEventListener('click', () => setAllSelected(document.getElementById('lstColumns'), false));
+        document.getElementById('btnSelectAllPivot').addEventListener('click', () => setAllSelected(document.getElementById('lstPivot'), true));
+        document.getElementById('btnClearPivot').addEventListener('click', () => setAllSelected(document.getElementById('lstPivot'), false));
+
+        // Run Conversion
+        document.getElementById('btnRun').addEventListener('click', function() {
+            const lstColumns = document.getElementById('lstColumns');
+            const lstPivot = document.getElementById('lstPivot');
+            const includeHeader = document.getElementById('chkIncludeHeader').checked;
+
+            const keepCols = Array.from(lstColumns.selectedOptions).map(opt => parseInt(opt.value));
+            const pivotCols = Array.from(lstPivot.selectedOptions).map(opt => parseInt(opt.value));
+
+            if (keepCols.length === 0 || pivotCols.length === 0) {
+                alert('Please select at least one KEEP and one PIVOT column.');
+                return;
+            }
+
+            // Build output data
+            outputData = [];
+
+            const outHeaders = [];
+            keepCols.forEach(colIndex => outHeaders.push(headers[colIndex] || ''));
+            if (includeHeader) outHeaders.push('Pivot Column Name');
+            outHeaders.push('Pivot Value');
+            outputData.push(outHeaders);
+
+            for (let i = 1; i < inputData.length; i++) {
+                const row = inputData[i] || [];
+
+                pivotCols.forEach(pivotCol => {
+                    const pivotValue = row[pivotCol];
+                    if (pivotValue !== undefined && pivotValue !== null && pivotValue !== '') {
+                        const outRow = [];
+                        keepCols.forEach(keepCol => outRow.push(row[keepCol] ?? ''));
+                        if (includeHeader) outRow.push(headers[pivotCol] || '');
+                        outRow.push(pivotValue);
+                        outputData.push(outRow);
+                    }
+                });
+            }
+
+            const generated = Math.max(0, outputData.length - 1);
+            setRunStatus(`Conversion completed. ${generated} rows generated and downloaded.`);
+            
+            // Auto-download as Excel
+            if (generated > 0) {
+                downloadExcel();
+            }
+        });
+
+        // Download as Excel
+        function downloadExcel() {
+            if (!outputData || outputData.length < 2) return;
+            const ws = XLSX.utils.aoa_to_sheet(outputData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Output Data');
+            XLSX.writeFile(wb, 'output-data.xlsx');
+        }
+
+        // Helper Functions
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = 'mt-3 text-xs sm:text-sm ' +
+                (type === 'error' ? 'text-red-600' :
+                 type === 'success' ? 'text-green-600' : 'text-gray-600');
+        }
+
+        function setRunStatus(message) {
+            const el = document.getElementById('runStatus');
+            el.textContent = message;
+        }
+
+        // Copy sample CSV functionality
+        document.addEventListener("DOMContentLoaded", function () {
+            const copyBtn = document.getElementById("copy-sample-csv");
+            const sample = document.getElementById("sample-csv");
+            const feedback = document.getElementById("copy-feedback");
+
+            if (copyBtn && sample) {
+                copyBtn.addEventListener("click", async () => {
+                    const text = sample.value.trim();
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                        } else {
+                            // Fallback
+                            const temp = document.createElement("textarea");
+                            temp.value = text;
+                            document.body.appendChild(temp);
+                            temp.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(temp);
+                        }
+                        if (feedback) {
+                            feedback.textContent = "Sample CSV copied to clipboard.";
+                            feedback.classList.remove("text-red-500");
+                            feedback.classList.add("text-green-600");
+                            setTimeout(() => (feedback.textContent = ""), 2500);
+                        }
+                    } catch (e) {
+                        if (feedback) {
+                            feedback.textContent = "Unable to copy. Please select and copy manually.";
+                            feedback.classList.remove("text-green-600");
+                            feedback.classList.add("text-red-500");
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
